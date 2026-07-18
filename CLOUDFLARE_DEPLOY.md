@@ -15,6 +15,8 @@ npm test
 npm run build
 ```
 
+Los scripts se invocan mediante `bash`, por lo que la compilación funciona también cuando el proyecto se cargó a GitHub desde la interfaz web y se perdieron los permisos ejecutables de los archivos `.sh`.
+
 Crear una base D1 para producción:
 
 ```bash
