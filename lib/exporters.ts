@@ -52,9 +52,14 @@ function fillVeSheet(sheet:Worksheet,request:VeRequest,allocation:{lot:string;cu
   caseCell.value=allocation.boxes;caseCell.numFmt="0";
   set("B16", `CLIENTE: ${request.client}     PN#: ${request.pn}     PAÍS DESTINO: ${request.destination}`);
   set("B17", `Alcohol etiqueta: ${request.alcohol}`);
+  const marks=observationMarks(request.observed);
+  sheet.getCell("C21").value=marks.yes;
+  sheet.getCell("E21").value=marks.no;
+  for(const address of ["C21","E21"]){const cell=sheet.getCell(address);cell.alignment={...cell.alignment,horizontal:"center",vertical:"middle"};cell.font={...cell.font,bold:true,size:12};}
 }
 
 export function caseQuantity(usedBottles:number,unitsPerBox:number){return Math.ceil(usedBottles/Math.max(1,unitsPerBox));}
+export function observationMarks(observed:boolean){return {yes:observed?"X":"",no:observed?"":"X"};}
 export function varietyWithClosure(request:Pick<VeRequest,"variety"|"closure">){return request.closure?.trim().toLowerCase().includes("screw")?`${request.variety} SCREW`:request.variety;}
 
 function cloneWorksheet(source:Worksheet,target:Worksheet){
@@ -88,7 +93,7 @@ export async function exportVePdf(request: VeRequest) {
     ["BOTELLAS EN ESTIBA / SE OCUPAN", `${request.totalStockBottles.toLocaleString("es-AR")} / ${request.requestedBottles.toLocaleString("es-AR")}`],
     ["CÓDIGO / PRESENTACIÓN", `${request.productCode} · ${request.presentation}`], [request.market.toLowerCase().includes("interno")?"MERCADO INTERNO · CAJAS":`MERCADO EXTERNO · ${request.unitsPerBox} UNIDADES`, boxes.toLocaleString("es-AR")],
     ["CLIENTE", request.client], ["PN# / DESTINO", `${request.pn} · ${request.destination}`],
-    ["ALCOHOL ETIQUETA", request.alcohol], ["RESPONSABLE", ""],
+    ["ALCOHOL ETIQUETA", request.alcohol], ["ESTIBA OBSERVADA", request.observed?"X  SÍ       NO":"SÍ       X  NO"], ["RESPONSABLE", ""],
   ];
   fields.forEach(([label, value]) => { doc.setFont("helvetica", "bold"); doc.text(`${label}:`, left + 2, y + 5.5); doc.setFont("helvetica", "normal"); doc.text(String(value), left + 51, y + 5.5, { maxWidth: 130 }); line(8); });
   const section = (title: string, rows: number) => { doc.setFillColor(242, 243, 244); doc.rect(left, y, right - left, 8, "F"); doc.rect(left, y, right - left, 8); doc.setFont("helvetica", "bold"); doc.text(title, 105, y + 5.5, { align: "center" }); y += 8; doc.setFont("helvetica", "normal"); for (let i = 0; i < rows; i += 1) line(8); };

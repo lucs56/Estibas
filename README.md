@@ -157,7 +157,7 @@ La simulación utiliza una instantánea validada de las filas `VESTIR` y los enc
 - `Sem 20-07 al 24-07`
 - `TENTATIVO Sem 27-07 al 31-07`
 
-El ID y el GID se administran desde **Administración → Configuración**, no están repartidos por el código. El botón **Actualizar programación** descarga nuevamente el libro desde Google con caché desactivada. La planilla debe permitir lectura mediante enlace; no se incluyen credenciales en el repositorio.
+El ID y el GID se administran desde **Administración → Configuración**, no están repartidos por el código. En la pantalla **Pedidos**, el libro se actualiza automáticamente cada 30 segundos mientras la pestaña está visible; el botón **Actualizar programación** permite hacerlo inmediatamente. Ambas lecturas descargan nuevamente el libro con caché desactivada. La planilla debe permitir lectura mediante enlace; no se incluyen credenciales en el repositorio.
 
 ## Seguridad
 

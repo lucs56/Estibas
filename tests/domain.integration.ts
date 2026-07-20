@@ -5,7 +5,7 @@ import { evaluateStack, weekStartIso } from "../lib/expiry";
 import { parseEstibasFile, parseLotsFile } from "../lib/importers";
 import { parseDressingProgram } from "../lib/sheet-program";
 import { allocateFefo, groupAllocationsByLot, stockGroupKey } from "../lib/allocations";
-import { caseQuantity, varietyWithClosure } from "../lib/exporters";
+import { caseQuantity, observationMarks, varietyWithClosure } from "../lib/exporters";
 import type { LotDate, StackRecord } from "../lib/types";
 
 const at = new Date("2026-07-18T12:00:00Z");
@@ -84,6 +84,11 @@ test("unifica variantes de espacios y agota el grupo antes de seguir", () => {
 test("calcula cajas desde las botellas ocupadas y la presentación", () => {
   assert.equal(caseQuantity(632,12),53);
   assert.equal(caseQuantity(630,6),105);
+});
+
+test("marca exclusivamente SI o NO para estiba observada", () => {
+  assert.deepEqual(observationMarks(true), { yes:"X", no:"" });
+  assert.deepEqual(observationMarks(false), { yes:"", no:"X" });
 });
 
 test("agrega SCREW a la variedad sólo cuando lo indica Tapón/SC", () => {

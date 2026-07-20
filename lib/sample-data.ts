@@ -62,7 +62,7 @@ export const sampleOrders:ProductionOrder[]=programRows.map(([week,sheetRow,day,
   presentation:`${unitsPerBox} × 750 mL`,status:"PROGRAMADO",source:"simulated",
 }));
 
-export const sampleRequests: VeRequest[] = [{ id:"ve-demo-001",number:"VE-2026-0142",createdAt:"2026-07-16T14:32:00.000Z",requestDate:"2026-07-16",fillingDate:"2026-07-13",possibleDressingDate:"Sem 20-07 al 24-07",line:"Línea 3",brand:"ALAMOS",variety:"VIOGNIER",harvest:"2025",cut:"3853",lots:["L1 - 26131"],selectedStackIds:["218260602740643"],totalStockBottles:607,requestedBottles:600,productCode:"388-25-461",presentation:"6 × 750 mL",market:"Mercado externo",requestedBoxes:100,unitsPerBox:6,client:"INTERVINOS NV",pn:"E00000048190",destination:"BELGIUM",alcohol:"",responsible:"",status:"generated" }];
+export const sampleRequests: VeRequest[] = [{ id:"ve-demo-001",number:"VE-2026-0142",createdAt:"2026-07-16T14:32:00.000Z",requestDate:"2026-07-16",fillingDate:"2026-07-13",possibleDressingDate:"Sem 20-07 al 24-07",line:"Línea 3",brand:"ALAMOS",variety:"VIOGNIER",harvest:"2025",cut:"3853",lots:["L1 - 26131"],selectedStackIds:["218260602740643"],totalStockBottles:607,requestedBottles:600,productCode:"388-25-461",presentation:"6 × 750 mL",market:"Mercado externo",requestedBoxes:100,unitsPerBox:6,client:"INTERVINOS NV",pn:"E00000048190",destination:"BELGIUM",closure:"Screw",alcohol:"",responsible:"",observed:false,status:"generated" }];
 export const sampleUsers: AppUser[] = [
   { id:"u1",name:"Administrador",email:"admin@bodega.local",username:"admin",credentialHash:"03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4",role:"Administrador",active:true },
 ];

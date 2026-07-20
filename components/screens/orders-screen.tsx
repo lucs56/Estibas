@@ -1,12 +1,15 @@
 "use client";
 
 import { Cloud, FileSpreadsheet, RefreshCw, Search, Sparkles } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ProductionOrder } from "@/lib/types";
 
 const lines=[1,2,3] as const;
 
 export default function OrdersScreen({orders,onSync,onSelect,busy}:{orders:ProductionOrder[];onSync:()=>Promise<void>;onSelect:(order:ProductionOrder)=>void;busy:boolean}) {
+  const syncRef=useRef(onSync);const busyRef=useRef(busy);
+  useEffect(()=>{syncRef.current=onSync;busyRef.current=busy;},[onSync,busy]);
+  useEffect(()=>{const timer=window.setInterval(()=>{if(document.visibilityState==="visible"&&!busyRef.current)void syncRef.current();},30_000);return()=>window.clearInterval(timer);},[]);
   const dressingOrders=useMemo(()=>orders.filter(order=>order.action.trim().toUpperCase()==="VESTIR"),[orders]);
   const weeks=[...new Set(dressingOrders.map(order=>order.week))];
   const [week,setWeek]=useState(weeks[0]??"");const [line,setLine]=useState<1|2|3>(3);const [query,setQuery]=useState("");
@@ -16,7 +19,7 @@ export default function OrdersScreen({orders,onSync,onSelect,busy}:{orders:Produ
 
   return <>
     <section className="page-heading"><div><div className="eyebrow"><i/> Programa de vestido</div><h1>Pedidos para vestir</h1><p>Sólo se muestran filas cuya columna Acción dice VESTIR, respetando los bloques de líneas 1, 2 y 3.</p></div><button className="primary" onClick={()=>void onSync()} disabled={busy}><RefreshCw size={17} className={busy?"spin":""}/>{busy?"Actualizando…":"Actualizar programación"}</button></section>
-    <section className="connection-card"><div className="connection-icon"><Cloud size={23}/></div><div><span className="connection-status"><i/> CONEXIÓN EN VIVO</span><strong>Programación Junín · Google Sheets</strong><p>Cada actualización vuelve a leer la planilla sin caché. Sólo incluye VESTIR de las líneas 1, 2 y 3.</p></div><div className="connection-meta"><span>Filas disponibles</span><strong>{dressingOrders.length} para vestir</strong><small>ID …xeBDPQ</small></div></section>
+    <section className="connection-card"><div className="connection-icon"><Cloud size={23}/></div><div><span className="connection-status"><i/> CONEXIÓN EN VIVO</span><strong>Programación Junín · Google Sheets</strong><p>Actualización automática cada 30 segundos y manual mediante el botón. Sólo incluye VESTIR de las líneas 1, 2 y 3.</p></div><div className="connection-meta"><span>Filas disponibles</span><strong>{dressingOrders.length} para vestir</strong><small>ID …xeBDPQ</small></div></section>
     <section className="panel order-panel">
       <div className="order-tools"><div className="week-tabs">{weeks.map(value=><button key={value} className={currentWeek===value?"active":""} onClick={()=>setWeek(value)}>{value}</button>)}</div><label className="order-search"><Search size={15}/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="Buscar PIN°, código, marca o cliente…"/></label></div>
       <div className="line-tabs">{lines.map(value=><button key={value} className={line===value?"active":""} onClick={()=>setLine(value)}><span>Línea {value}</span><b>{lineCounts[value]}</b></button>)}</div>

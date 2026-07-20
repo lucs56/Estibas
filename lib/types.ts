@@ -29,6 +29,7 @@ export type VeRequest = {
   cut: string; lots: string[]; selectedStackIds: string[]; totalStockBottles: number;
   requestedBottles: number; productCode: string; presentation: string; market: string;
   requestedBoxes: number; unitsPerBox: number; client: string; pn: string; destination: string; closure?: string;
+  observed: boolean;
   allocations?: VeAllocation[];
   alcohol: string; responsible: string;
   status: "draft" | "generated" | "printed";
