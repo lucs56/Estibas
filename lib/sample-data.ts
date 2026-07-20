@@ -78,4 +78,4 @@ export const sampleAudit: AuditEntry[] = [
   { id:"a2",timestamp:"2026-07-18T13:43:00.000Z",actor:"Marisel",action:"Importación",entity:"Lotes",detail:"365 lotes del año 2026 vinculados" },
   { id:"a3",timestamp:"2026-07-18T13:45:00.000Z",actor:"Sistema",action:"Sincronización",entity:"Google Sheets",detail:"3 pestañas semanales detectadas" },
 ];
-export const defaultSettings: AppSettings = { expirationDays:90,urgentDays:15,warningDays:30,spreadsheetId:"1XL44rx3sNKpxowAQzY1iSjy7s8lYOsPTMngD6xeBDPQ",spreadsheetGid:"1258079893",googleMode:"simulation" };
+export const defaultSettings: AppSettings = { expirationDays:90,urgentDays:15,warningDays:30,spreadsheetId:"1XL44rx3sNKpxowAQzY1iSjy7s8lYOsPTMngD6xeBDPQ",spreadsheetGid:"1258079893",googleMode:"connected" };

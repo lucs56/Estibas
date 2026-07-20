@@ -1,6 +1,6 @@
 # Gestión de Estibas y Solicitudes VE
 
-Aplicación industrial para Fraccionamiento de vinos. Esta entrega implementa la simulación funcional solicitada: importa los archivos reales de referencia, calcula vencimientos, prioriza estibas por FEFO, simula los pedidos del Google Sheets y genera la Solicitud VE en Excel, PDF e impresión.
+Aplicación industrial para Fraccionamiento de vinos. Importa los archivos reales de referencia, calcula vencimientos, prioriza estibas por FEFO, sincroniza en vivo los pedidos de Google Sheets y genera la Solicitud VE en Excel, PDF e impresión.
 
 ## Alcance implementado
 
@@ -157,7 +157,7 @@ La simulación utiliza una instantánea validada de las filas `VESTIR` y los enc
 - `Sem 20-07 al 24-07`
 - `TENTATIVO Sem 27-07 al 31-07`
 
-El ID y el GID se administran desde **Administración → Configuración**, no están repartidos por el código. No se incluyeron credenciales en el repositorio. Para activar el modo conectado se debe proporcionar una cuenta de servicio con acceso de lectura al Sheet y configurar el secreto en el backend; la interfaz y el modelo de pedidos ya quedan preparados.
+El ID y el GID se administran desde **Administración → Configuración**, no están repartidos por el código. El botón **Actualizar programación** descarga nuevamente el libro desde Google con caché desactivada. La planilla debe permitir lectura mediante enlace; no se incluyen credenciales en el repositorio.
 
 ## Seguridad
 
