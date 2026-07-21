@@ -1,5 +1,11 @@
 # Gestión de Estibas y Solicitudes VE
 
+## Versión 14
+
+- Todos los perfiles —Administrador, Supervisor y Operario— pueden cambiar su propia contraseña desde el menú lateral.
+- Para cambiarla deben validar la contraseña actual, ingresar una nueva de al menos cuatro caracteres y confirmarla.
+- La modificación se guarda en D1, se registra en auditoría y la contraseña continúa almacenándose únicamente como hash.
+
 Aplicación industrial para Fraccionamiento de vinos. Importa los archivos reales de referencia, calcula vencimientos, prioriza estibas por FEFO, sincroniza en vivo los pedidos de Google Sheets y genera la Solicitud VE en Excel, PDF e impresión.
 
 ## Alcance implementado
