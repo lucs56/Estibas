@@ -1,5 +1,14 @@
 # Gestión de Estibas y Solicitudes VE
 
+## Versión 18 — seguridad sobre v17 estable
+
+- Cada usuario puede cambiar su propia contraseña validando la contraseña actual.
+- El administrador puede restablecer la contraseña de cualquier cuenta desde Administración.
+- Las nuevas contraseñas se confirman, requieren al menos cuatro caracteres y se guardan únicamente como hash.
+- Los cambios quedan registrados en Auditoría.
+- La pantalla de ingreso ya no muestra las credenciales iniciales.
+- No se modificó la lógica validada de reportes, muestras, stock, solicitudes ni Google Sheets.
+
 Aplicación industrial para Fraccionamiento de vinos. Importa los archivos reales de referencia, calcula vencimientos, prioriza estibas por FEFO, sincroniza en vivo los pedidos de Google Sheets y genera la Solicitud VE en Excel, PDF e impresión.
 
 ## Alcance implementado
