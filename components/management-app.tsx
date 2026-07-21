@@ -2,7 +2,7 @@
 
 import { AlertTriangle, BarChart3, Boxes, CalendarClock, CircleUserRound, ClipboardList, Database, FileSpreadsheet, History, LayoutDashboard, LogOut, PackageCheck, Search, Settings, Sparkles, Users } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import AdminScreen from "@/components/screens/admin-screen";
+import AdminScreen from "@/components/screens/admin-screen-enhanced";
 import HistoryScreen from "@/components/screens/history-screen";
 import OrdersScreen from "@/components/screens/orders-screen";
 import StacksScreen from "@/components/screens/stacks-screen";
