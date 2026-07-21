@@ -15,24 +15,25 @@ type Props = {
 
 function today() { return new Date().toISOString().slice(0,10); }
 const isUsable = (stack: EvaluatedStack) => stack.availableQuantity > 0 && ["under15", "under30", "ok"].includes(stack.expiryStatus);
+const isInStock = (stack: EvaluatedStack) => stack.availableQuantity > 0;
 
 export default function VeScreen({orders,activeOrder,onOrder,stacks,selected,onSelected,onGenerate,onGoStacks}:Props) {
   const [query,setQuery]=useState(""); const [stackQuery,setStackQuery]=useState("");const [showAll,setShowAll]=useState(false);const [alcohol,setAlcohol]=useState(activeOrder?.alcohol ?? "");const [observed,setObserved]=useState(false);
   const [requestDate,setRequestDate]=useState(today()); const [generated,setGenerated]=useState<VeRequest|null>(null);
   const selectedStacks=stacks.filter(s=>selected.has(s.id)&&isUsable(s));
   const recommendationPool=useMemo(()=>{
-    if(!activeOrder)return stacks.filter(isUsable).slice(0,8);
+    if(!activeOrder)return stacks.filter(isInStock).slice(0,8);
     const variety=activeOrder.variety.toLowerCase(); const brand=activeOrder.brand.toLowerCase().split(" ")[0];
     const q=stackQuery.trim().toLowerCase();
-    return stacks.filter(isUsable).filter(s=>!q||[s.barcode,s.pallet,s.productCode,s.product,s.variety,s.lot,s.cut].join(" ").toLowerCase().includes(q)).map(s=>({s,score:(s.variety&&variety.includes(s.variety.toLowerCase())?4:0)+(s.product.toLowerCase().includes(brand)?3:0)+(s.cut===activeOrder.cut?2:0)})).sort((a,b)=>b.score-a.score||(a.s.daysRemaining??9999)-(b.s.daysRemaining??9999)).map(v=>v.s);
+    return stacks.filter(isInStock).filter(s=>!q||[s.barcode,s.pallet,s.productCode,s.product,s.variety,s.lot,s.cut].join(" ").toLowerCase().includes(q)).map(s=>({s,score:(s.variety&&variety.includes(s.variety.toLowerCase())?4:0)+(s.product.toLowerCase().includes(brand)?3:0)+(s.cut===activeOrder.cut?2:0)})).sort((a,b)=>b.score-a.score||(a.s.daysRemaining??9999)-(b.s.daysRemaining??9999)).map(v=>v.s);
   },[activeOrder,stacks,stackQuery]);
-  const stockGroups=useMemo(()=>{const groups=new Map<string,EvaluatedStack[]>();recommendationPool.forEach(stack=>{const key=stockGroupKey(stack.productCode,stack.lot,stack.elaborationDate);groups.set(key,[...(groups.get(key)??[]),stack]);});return [...groups.values()];},[recommendationPool]);
+  const stockGroups=useMemo(()=>{const groups=new Map<string,EvaluatedStack[]>();recommendationPool.forEach(stack=>{const key=stockGroupKey(stack.productCode,stack.lot,stack.elaborationDate,stack.product,stack.cut);groups.set(key,[...(groups.get(key)??[]),stack]);});return [...groups.values()];},[recommendationPool]);
   const recommendations=stockGroups.slice(0,showAll?50:12);
   const totalStock=selectedStacks.reduce((n,s)=>n+s.availableQuantity,0);
   const allocations=activeOrder?allocateFefo(selectedStacks,activeOrder.bottles):[];
   const lotGroups=groupAllocationsByLot(allocations);
   const draft:VeRequest|null=activeOrder?{id:generated?.id??`draft-${activeOrder.id}`,number:generated?.number??"BORRADOR",createdAt:`${requestDate}T00:00:00.000Z`,requestDate,fillingDate:lotGroups[0]?.fillingDate??"",possibleDressingDate:activeOrder.possibleDressingDate,line:activeOrder.line,brand:activeOrder.brand,variety:activeOrder.variety,harvest:activeOrder.harvest,cut:activeOrder.cut||selectedStacks[0]?.cut||"",lots:lotGroups.map(group=>group.lot),selectedStackIds:selectedStacks.map(s=>s.id),totalStockBottles:totalStock,requestedBottles:activeOrder.bottles,productCode:activeOrder.internalCode,presentation:activeOrder.presentation,market:activeOrder.market,requestedBoxes:activeOrder.boxes,unitsPerBox:activeOrder.unitsPerBox,client:activeOrder.client,pn:activeOrder.pn,destination:activeOrder.country,closure:activeOrder.closure,alcohol,responsible:"",observed,allocations,status:"generated"}:null;
-  const chooseGroup=(members:EvaluatedStack[])=>{const next=new Set(selected);const allSelected=members.every(item=>next.has(item.id));members.forEach(item=>allSelected?next.delete(item.id):next.add(item.id));onSelected(next);};
+  const chooseGroup=(members:EvaluatedStack[])=>{const usable=members.filter(isUsable);const next=new Set(selected);const allSelected=usable.length>0&&usable.every(item=>next.has(item.id));usable.forEach(item=>allSelected?next.delete(item.id):next.add(item.id));onSelected(next);};
   const canGenerate=Boolean(draft&&selectedStacks.length&&activeOrder);
   const autoAssign=()=>{if(!activeOrder)return;const brand=activeOrder.brand.toLowerCase().split(" ")[0];const variety=activeOrder.variety.toLowerCase();let remaining=activeOrder.bottles;const ids=new Set<string>();for(const members of stockGroups){const sample=members[0];if(!(sample.product.toLowerCase().includes(brand)||(sample.variety&&variety.includes(sample.variety.toLowerCase()))))continue;members.forEach(item=>ids.add(item.id));remaining-=members.reduce((n,item)=>n+item.availableQuantity,0);if(remaining<=0)break;}onSelected(ids);};
   const generate=()=>{if(!draft||!canGenerate)return;const final={...draft,id:crypto.randomUUID(),number:`VE-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`,createdAt:new Date().toISOString()};setGenerated(final);onGenerate(final);};

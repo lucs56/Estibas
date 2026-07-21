@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 function isValidState(value: unknown): value is PersistedAppState {
   if (!value || typeof value !== "object") return false;
   const state = value as Partial<PersistedAppState>;
-  return state.version === 4 && Array.isArray(state.stacks) && Array.isArray(state.lots)
+  return state.version === 5 && Array.isArray(state.stacks) && Array.isArray(state.lots)
     && Array.isArray(state.orders) && Array.isArray(state.requests)
     && Array.isArray(state.users) && Array.isArray(state.audit)
     && Boolean(state.catalogs && typeof state.catalogs === "object" && Object.values(state.catalogs).every(Array.isArray))

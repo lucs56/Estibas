@@ -28,7 +28,7 @@ export const sampleStacks: StackRecord[] = rows.map(([barcode,pallet,line,produc
   fractionationDate: date, location: "E18", sourceStatus: barcode.startsWith("218") ? "Almacenado" : "Producido a Almacena",
   lot, cut, client, country, variety, harvest, used: Boolean(used), extraData: { fuente: "ESTIBAS(1)(1).xlsx", simulacion: true },
 }));
-export const sampleLots: LotDate[] = Array.from({ length: 365 }, (_, i) => lotDateFromCode(`26${String(i + 1).padStart(3,"0")}`)).filter((v): v is LotDate => Boolean(v));
+export const sampleLots: LotDate[] = Array.from({length:11},(_,offset)=>2016+offset).flatMap(year=>Array.from({length:366},(_,i)=>lotDateFromCode(`${String(year).slice(-2)}${String(i+1).padStart(3,"0")}`)).filter((v):v is LotDate=>Boolean(v))).map(lot=>({...lot,sourceName:"Lotes_2016_2026.xlsx"}));
 
 type ProgramRow=[string,number,string,string,string,string,string,string,string,string,string,string,number,number,number,string,string];
 const programRows:ProgramRow[]=[

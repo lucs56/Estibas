@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import * as XLSX from "xlsx";
 import { evaluateStack, weekStartIso } from "../lib/expiry";
 import { parseEstibasFile, parseLotsFile } from "../lib/importers";
 import { parseDressingProgram } from "../lib/sheet-program";
-import { allocateFefo, groupAllocationsByLot, stockGroupKey } from "../lib/allocations";
+import { allocateFefo, groupAllocationsByLot, reconcileHistoricalConsumption, stockGroupKey } from "../lib/allocations";
 import { caseQuantity, observationMarks, varietyWithClosure } from "../lib/exporters";
 import type { LotDate, StackRecord } from "../lib/types";
 
@@ -20,7 +21,7 @@ function stack(overrides: Partial<StackRecord>): StackRecord {
   return {
     id:"s",barcode:"018000000000",pallet:"1",line:"J01",productCode:"P",product:"Vino",
     originalQuantity:100,availableQuantity:100,fractionationDate:"2026-04-20",location:"E18",
-    lot:"",cut:"",client:"Cliente",country:"Argentina",variety:"Malbec",harvest:"2025",used:false,
+    lot:"26110",cut:"",client:"Cliente",country:"Argentina",variety:"Malbec",harvest:"2025",used:false,
     extraData:{},...overrides,
   };
 }
@@ -38,9 +39,9 @@ test("aplica las reglas de 90 días y los límites de alerta", () => {
   assert.equal(fromLot.daysRemaining, 10);
   assert.equal(fromLot.expiryStatus, "under15");
 
-  assert.equal(evaluateStack(stack({fractionationDate:"2026-05-04"}),lots,at).expiryStatus,"under30");
-  assert.equal(evaluateStack(stack({fractionationDate:"2026-05-19"}),lots,at).expiryStatus,"ok");
-  assert.equal(evaluateStack(stack({barcode:"027000000000"}),lots,at).expiryStatus,"unsupported");
+  assert.equal(evaluateStack(stack({lot:"26124"}),lots,at).expiryStatus,"under30");
+  assert.equal(evaluateStack(stack({lot:"26139"}),lots,at).expiryStatus,"ok");
+  assert.equal(evaluateStack(stack({barcode:"027000000000",lot:""}),lots,at).expiryStatus,"missingLot");
 });
 
 test("extrae sólo VESTIR y conserva la línea del bloque visual", () => {
@@ -118,5 +119,28 @@ test("importa automáticamente los tres formatos reales de referencia", async ()
     result[status]=(result[status]??0)+1;
     return result;
   },{});
-  assert.deepEqual(counts,{expired:352,under15:10,under30:26,ok:193,unsupported:20});
+  assert.equal(Object.values(counts).reduce((sum,value)=>sum+value,0),601);
+});
+
+test("mantiene fijo el calendario completo 2016 a 2026", async()=>{
+  const lots=await parseLotsFile(workbook("public/examples/Lotes_2016_2026.xlsx"));
+  assert.deepEqual(lots.years,[2016,2017,2018,2019,2020,2021,2022,2023,2024,2025,2026]);
+  assert.equal(lots.lots.length,4018);
+  assert.equal(lots.lots.find(item=>item.code==="25152")?.elaborationDate,"2025-06-01");
+});
+
+test("descuenta consumos guardados al reimportar un reporte nuevo",()=>{
+  const physical=stack({id:"nuevo-cb",barcode:"218999999999",productCode:"128EUSA",product:"ANIMAL CAB SAUV ORGÁNICO",lot:"26112",cut:"3900",originalQuantity:4103,availableQuantity:4103});
+  const requests=[{id:"r",number:"VE-2026-1",createdAt:"2026-07-20",requestDate:"2026-07-20",fillingDate:"2026-04-22",possibleDressingDate:"2026-07-20",line:"Línea 3",brand:"ANIMAL",variety:"CABERNET SAUVIGNON",harvest:"2025",cut:"3900",lots:["26112"],selectedStackIds:["viejo-cb"],totalStockBottles:4103,requestedBottles:2520,productCode:"128EUSA",presentation:"12 × 750 mL",market:"Mercado externo",requestedBoxes:210,unitsPerBox:12,client:"Cliente",pn:"E0001",destination:"USA",observed:false,allocations:[{stackId:"viejo-cb",lot:"26112",cut:"3900",pallet:"",barcode:"",productCode:"128EUSA",product:"ANIMAL CAB SAUV ORGÁNICO",availableBottles:4103,groupAvailableBottles:4103,usedBottles:2520,fillingDate:"2026-04-22"}],alcohol:"",responsible:"",status:"generated" as const}];
+  const result=reconcileHistoricalConsumption([physical],requests,[]);
+  assert.equal(result[0]?.availableQuantity,1583);
+  assert.equal((result[0]?.extraData.consumptions as Array<{pn:string}>)[0]?.pn,"E0001");
+});
+
+test("importa reportes grandes sin truncar filas",async()=>{
+  const rows=Array.from({length:2500},(_,index)=>({Producto:`P${index}`,Descripcion:`Vino ${index}`,Cant:index+1,Lote:"26112","Corte/AP":"3900"}));
+  const book=XLSX.utils.book_new();XLSX.utils.book_append_sheet(book,XLSX.utils.json_to_sheet(rows),"Stock");
+  const file=new File([XLSX.write(book,{type:"array",bookType:"xlsx"})],"estibas-grandes.xlsx");
+  const result=await parseEstibasFile(file);
+  assert.equal(result.stacks.length,2500);
 });

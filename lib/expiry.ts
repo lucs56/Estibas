@@ -33,13 +33,16 @@ export function evaluateStack(stack: StackRecord, lots: Map<string, LotDate>, to
   let elaborationDate: string | null = null;
   let rule: EvaluatedStack["rule"] = "unsupported";
   let expiryStatus: ExpiryStatus = "unsupported";
-  if (stack.barcode.startsWith("01")) { rule = "barcode01"; elaborationDate = stack.fractionationDate; expiryStatus = elaborationDate ? "ok" : "missingLot"; }
-  if (stack.barcode.startsWith("218")) { rule = "barcode218"; const code = normalizeLotCode(stack.lot); elaborationDate = code ? lots.get(code)?.elaborationDate ?? lotDateFromCode(code)?.elaborationDate ?? null : null; expiryStatus = elaborationDate ? "ok" : "missingLot"; }
+  const code=normalizeLotCode(stack.lot);
+  elaborationDate=code ? lots.get(code)?.elaborationDate ?? lotDateFromCode(code)?.elaborationDate ?? null : null;
+  if (stack.barcode.startsWith("01")) rule = "barcode01";
+  else if (stack.barcode.startsWith("218")) rule = "barcode218";
+  expiryStatus=elaborationDate?"ok":"missingLot";
   if (!elaborationDate) return { ...stack, elaborationDate: null, expiryDate: null, daysRemaining: null, expiryStatus, rule };
   const expiryDate = addDays(elaborationDate, expirationDays);
   const daysRemaining = Math.round((new Date(`${expiryDate}T12:00:00Z`).getTime() - new Date(`${today.toISOString().slice(0, 10)}T12:00:00Z`).getTime()) / DAY);
   expiryStatus = daysRemaining < 0 ? "expired" : daysRemaining < urgentDays ? "under15" : daysRemaining < warningDays ? "under30" : "ok";
-  return { ...stack, elaborationDate, expiryDate, daysRemaining, expiryStatus, rule };
+  return { ...stack, fractionationDate: elaborationDate, elaborationDate, expiryDate, daysRemaining, expiryStatus, rule };
 }
 
 export const formatDate = (value: string | null) => {if(!value)return "—";const date=new Date(`${value}T12:00:00Z`);return Number.isNaN(date.valueOf())?value:new Intl.DateTimeFormat("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }).format(date);};

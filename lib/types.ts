@@ -21,6 +21,7 @@ export type ProductionOrder = {
   bottles: number; market: string; alcohol: string; cut: string; line: string;
   lineNumber: 1 | 2 | 3; sheetRow: number; observations: string; frc: string;
   possibleDressingDate: string; presentation: string; status: string; source: "simulated" | "google";
+  veCompleted?: boolean; highlightedNew?: boolean;
 };
 
 export type VeRequest = {
@@ -33,12 +34,15 @@ export type VeRequest = {
   allocations?: VeAllocation[];
   alcohol: string; responsible: string;
   status: "draft" | "generated" | "printed";
+  samplesPrepared?: boolean;
 };
 
 export type VeAllocation = {
   stackId: string; lot: string; cut: string; pallet: string; barcode: string;
   productCode: string; product: string; availableBottles: number; groupAvailableBottles: number; usedBottles: number; fillingDate: string;
 };
+
+export type StockConsumption = { requestNumber: string; pn: string; bottles: number };
 
 export type AuditEntry = { id: string; timestamp: string; actor: string; action: string; entity: string; detail: string };
 export type UserRole = "Administrador" | "Supervisor" | "Operario";
@@ -50,7 +54,7 @@ export type AppSettings = {
 };
 
 export type PersistedAppState = {
-  version: 4;
+  version: 5;
   stacks: StackRecord[];
   lots: LotDate[];
   orders: ProductionOrder[];

@@ -3,10 +3,8 @@ import { defineConfig } from "vite";
 import hostingConfig from "./.openai/hosting.json";
 import { sites } from "./build/sites-vite-plugin";
 
-const SITE_CREATOR_PLACEHOLDER_DATABASE_ID =
-  "00000000-0000-4000-8000-000000000000";
-const cloudflareDatabaseId=process.env.CLOUDFLARE_D1_DATABASE_ID??SITE_CREATOR_PLACEHOLDER_DATABASE_ID;
-const cloudflareDatabaseName=process.env.CLOUDFLARE_D1_DATABASE_NAME??"site-creator-d1";
+const cloudflareDatabaseId=process.env.CLOUDFLARE_D1_DATABASE_ID??"5fec6501-cab3-400f-b1fe-4e682876f779";
+const cloudflareDatabaseName=process.env.CLOUDFLARE_D1_DATABASE_NAME??"estibas";
 
 const { d1, r2 } = hostingConfig;
 

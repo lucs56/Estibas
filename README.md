@@ -6,12 +6,10 @@ Aplicación industrial para Fraccionamiento de vinos. Importa los archivos reale
 
 - Dashboard responsive con totales de estibas, botellas, vencidas, próximas, disponibles y utilizadas.
 - Gráficos por estado, producto y cliente.
-- Importación automática de `ESTIBAS.xlsx` sin elegir columnas ni hoja manualmente.
-- Importación de archivos de lotes de cualquier año con código `AATTT` (año + día juliano).
+- Importación automática de `ESTIBAS.xlsx` sin elegir columnas ni hoja manualmente, sin límite artificial de 1.000 filas (prueba automatizada con 2.500 filas).
+- Calendario fijo `Lotes_2016_2026.xlsx` con 4.018 códigos y once hojas anuales. El botón **Cargar lotes** agrega 2027, 2028 y años futuros sin borrar el histórico.
 - Deducción automática del año por prefijo: `26xxx` = 2026, `25xxx` = 2025, `24xxx` = 2024; la fecha de llenado de cada hoja se obtiene de ese lote.
-- Reglas exactas de vencimiento a 90 días:
-  - código que comienza con `01`: fecha de elaboración = Fecha Fraccionamiento;
-  - código que comienza con `218`: fecha de elaboración = fecha del lote importado.
+- La fecha de elaboración y la fecha de llenado se obtienen siempre del código de lote del calendario, no de `Fecha Fraccionam.` del reporte. El vencimiento se calcula a 90 días.
 - Alertas: vencida, menos de 15 días, menos de 30 días, correcta, lote sin fecha y prefijo sin regla.
 - Bloqueo de estibas vencidas, utilizadas o sin datos suficientes para producción.
 - Orden FEFO y filtros por cliente, producto, línea, país, variedad, cosecha, código y lote.
@@ -19,6 +17,7 @@ Aplicación industrial para Fraccionamiento de vinos. Importa los archivos reale
 - Generación de Solicitud VE con validación de stock suficiente y selección de estibas del último reporte importado.
 - Asignación FEFO acumulativa: si el lote más antiguo no alcanza, consume su saldo y continúa con los lotes siguientes hasta completar exactamente el pedido.
 - Consolidación del stock por producto + lote + fecha de llenado: los códigos de barra no se presentan uno por uno; se muestra el stock total del grupo y cuánto se ocupa realmente.
+- Al reimportar el reporte, los consumos de Solicitudes VE anteriores se vuelven a aplicar por producto, descripción, lote, corte y fecha. Se muestra el saldo y el detalle “ya ocupaste … para el pedido PIN° …”.
 - La agrupación normaliza espacios, guiones y mayúsculas del reporte, y FEFO agota el stock consolidado del grupo antes de continuar con el lote siguiente.
 - El Excel generado contiene una pestaña independiente por lote utilizado, nombrada con producto y lote, para no mezclar corte, stock ni cantidades.
 - La fecha posible de vestido utiliza el primer día de la semana del programa (por ejemplo, `20/07/2026`) y la celda manual de **Cantidad de botellas** permanece vacía.
@@ -26,7 +25,9 @@ Aplicación industrial para Fraccionamiento de vinos. Importa los archivos reale
 - La cantidad de cajas se calcula como `botellas que se ocupan ÷ unidades por caja` y siempre se redondea hacia arriba a cajas enteras (`632 ÷ 12 = 53`).
 - `Cj x` del Google Sheets es la fuente de la presentación 6/12. Si el stock disponible no cubre el pedido, se muestra el faltante pero se permite generar la solicitud para completarla con producción semanal.
 - `Tapón/SC` del Sheets define el cierre: cuando contiene `Screw`, la solicitud agrega `SCREW` junto a la variedad (por ejemplo, `CHARDONNAY SCREW`).
-- La vista Estibas reproduce y consolida las columnas operativas: Producto, Descripción, Tipo de Fórmula, C.Ori, Cant, Fecha Fraccionam., Hora, Usuario, Depósito, Estado, OP.Original, Parte Prod. Original, Parte Prod., Aper, Análisis, Litros, Lote, INV, Ap. Exp. y Corte/AP.
+- La vista Estibas reproduce y consolida las columnas operativas; `Fecha elaboración` muestra el valor calculado desde lotes.
+- Pedidos pendientes o agregados se muestran en amarillo y se pueden tildar; los realizados quedan verdes. Generar una VE los marca automáticamente.
+- Historial permite tildar solicitudes y exportar un Excel de muestras con producto, descripción, lote, corte, PIN° y solicitud.
 - Acceso interno inicial `admin` / `1234`, alta y eliminación de usuarios con contraseña y cierre de sesión.
 - Exportación a Excel sobre la plantilla original, PDF e impresión.
 - Historial buscable por fecha, cliente, PN y lote, con reexportación.
@@ -39,7 +40,7 @@ Aplicación industrial para Fraccionamiento de vinos. Importa los archivos reale
 | Fuente | Resultado detectado |
 |---|---|
 | `ESTIBAS(1)(1).xlsx` | Hoja `Reporte`, 30 columnas y 601 estibas válidas |
-| `Lote 2026(1)(1).xlsx` | 365 códigos, de `26001` a `26365` |
+| `Lotes_2016_2026.xlsx` | 11 hojas, 4.018 códigos, de 2016 a 2026 |
 | Solicitud VE | Hoja `ALAMOS WOTM SB`, formulario R1 IB 03, Rev. 07 |
 | Google Sheets | Tres pestañas semanales y 76 columnas; encabezado en fila 4 |
 
@@ -130,7 +131,7 @@ DATABASE_URL=postgresql+psycopg://usuario:clave@servidor/estibas
 ## Flujo de prueba completo
 
 1. Ingresar en **Estibas**.
-2. Pulsar **Probar Lotes 2026.xlsx** y luego **Probar ESTIBAS.xlsx**. También se pueden elegir archivos propios.
+2. El calendario 2016–2026 ya está incorporado. Pulsar **Cargar reporte** para importar `ESTIBAS.xlsx`; **Cargar lotes** queda para agregar años futuros.
 3. Revisar los totales, estados, fechas calculadas y filtros. Las columnas desconocidas quedan preservadas como datos adicionales.
 4. Ingresar en **Pedidos**, elegir la semana y revisar por separado las líneas 1, 2 y 3. Sólo se muestran productos con acción `VESTIR`.
 5. Elegir un producto del programa para abrir la Solicitud VE con su `PIN°`, código, cliente, presentación, cajas y botellas.

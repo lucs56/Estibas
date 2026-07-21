@@ -98,12 +98,12 @@ export async function parseEstibasFile(file: File): Promise<StackImportResult> {
     });
     for (let row = 0; row < Math.min(matrix.length, 40); row += 1) {
       const fields = new Set(matrix[row].map(canonicalField).filter(Boolean));
-      const score = fields.size + (fields.has("barcode") ? 4 : 0) + (fields.has("availableQuantity") ? 2 : 0);
+      const score = fields.size + (fields.has("barcode") ? 2 : 0) + (fields.has("productCode") ? 3 : 0) + (fields.has("availableQuantity") ? 3 : 0);
       if (!best || score > best.score) best = { sheetName, matrix, headerIndex: row, score };
     }
   }
 
-  if (!best || best.score < 6) throw new Error("No se encontró una tabla de estibas con Código de Barra y Cantidad.");
+  if (!best || best.score < 6) throw new Error("No se encontró una tabla de estibas con Producto y Cantidad.");
   const headers = best.matrix[best.headerIndex].map((value) => String(value ?? "").trim());
   const mapping = new Map<number, CanonicalField>();
   headers.forEach((header, index) => { const field = canonicalField(header); if (field && ![...mapping.values()].includes(field)) mapping.set(index, field); });
@@ -119,16 +119,17 @@ export async function parseEstibasFile(file: File): Promise<StackImportResult> {
       if (field) values[field] = row[index];
       else if (header && row[index] !== null && row[index] !== "") extraData[header] = row[index];
     });
-    const barcode = String(values.barcode ?? "").trim();
-    if (!barcode || /total de pallets/i.test(barcode)) return;
-    if (barcode.length < 8) { rejectedRows += 1; return; }
+    const rawBarcode = String(values.barcode ?? "").trim();
+    if (/total de pallets/i.test(rawBarcode)) return;
     const productCode = String(values.productCode ?? "").trim();
     const product = String(values.product ?? productCode).trim();
+    const stableParts=[productCode,product,String(values.lot??""),String(values.cut??""),String(values.pallet??""),String(best.headerIndex+rowOffset+2)];
+    const barcode=rawBarcode||`SIN-CB-${stableParts.map(value=>normalizeHeader(value)).join("-")}`;
     const available = parseNumeric(values.availableQuantity);
-    if (!available && !parseNumeric(values.originalQuantity)) { rejectedRows += 1; return; }
+    if (!productCode && !product && !String(values.lot??"").trim()) { rejectedRows += 1; return; }
     const rawClient = String(values.client ?? "").trim();
     stacks.push({
-      id: `${barcode}-${String(values.pallet ?? rowOffset + 1).trim()}`,
+      id: `${barcode}-${String(values.pallet ?? rowOffset + 1).trim()}-${best.headerIndex+rowOffset+2}`,
       barcode,
       pallet: String(values.pallet ?? "").trim(),
       productionOrder: String(values.productionOrder ?? "").trim(),
@@ -176,4 +177,3 @@ export async function exampleFile(path: string, name: string): Promise<File> {
   if (!response.ok) throw new Error(`No se pudo abrir ${name}.`);
   return new File([await response.blob()], name, { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
 }
-
