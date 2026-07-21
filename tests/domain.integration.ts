@@ -7,7 +7,8 @@ import { parseEstibasFile, parseLotsFile } from "../lib/importers";
 import { parseDressingProgram } from "../lib/sheet-program";
 import { allocateFefo, groupAllocationsByLot, reconcileHistoricalConsumption, restoreRequestConsumption, stockGroupKey } from "../lib/allocations";
 import { caseQuantity, observationMarks, varietyWithClosure } from "../lib/exporters";
-import type { LotDate, StackRecord } from "../lib/types";
+import { buildSampleReportRows } from "../lib/sample-report";
+import type { LotDate, StackRecord, VeRequest } from "../lib/types";
 
 const at = new Date("2026-07-18T12:00:00Z");
 
@@ -25,6 +26,34 @@ function stack(overrides: Partial<StackRecord>): StackRecord {
     extraData:{},...overrides,
   };
 }
+
+test("el reporte de muestras no repite el mismo producto, lote y corte", () => {
+  const request = {
+    id:"r1",number:"VE-1",pn:"E0001",productCode:"443E",brand:"ALAMOS",lots:["L1 - 25297"],cut:"3825",
+    allocations:[
+      {productCode:"443E",product:"EST ALAMOS MB SC ORG 1X750",lot:"L1 - 25297",cut:"3825"},
+      {productCode:"443E ",product:"EST  ALAMOS MB SC ORG 1X750",lot:"L1 - 25297 ",cut:"3825"},
+      {productCode:"443E",product:"EST ALAMOS MB SC ORG 1X750",lot:"L1 - 25297",cut:"3825"},
+    ],
+  } as unknown as VeRequest;
+  const rows = buildSampleReportRows([request]);
+  assert.equal(rows.length, 1);
+  assert.deepEqual(rows[0], {Producto:"443E","Descripción":"EST ALAMOS MB SC ORG 1X750",Lote:"L1 - 25297",Corte:"3825","PIN°":"E0001",Solicitud:"VE-1"});
+});
+
+test("si el mismo lote participa en más de una solicitud conserva ambos números en una fila", () => {
+  const base = {
+    productCode:"302E",brand:"EST ALAMOS MALBEC 1X750",lots:["L1 - 26188"],cut:"3939",
+    allocations:[{productCode:"302E",product:"EST ALAMOS MALBEC 1X750",lot:"L1 - 26188",cut:"3939"}],
+  };
+  const rows = buildSampleReportRows([
+    {...base,id:"r1",number:"VE-1",pn:"E001"} as unknown as VeRequest,
+    {...base,id:"r2",number:"VE-2",pn:"E002"} as unknown as VeRequest,
+  ]);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0]["PIN°"], "E001 / E002");
+  assert.equal(rows[0].Solicitud, "VE-1 / VE-2");
+});
 
 test("aplica las reglas de 90 días y los límites de alerta", () => {
   const lots = new Map<string, LotDate>([["26119", {code:"26119",year:2026,elaborationDate:"2026-04-29",sourceName:"Lotes 2026.xlsx"}]]);
