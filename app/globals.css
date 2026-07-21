@@ -40,3 +40,4 @@
 .program-table tbody tr td{background:#fff8cf}.program-table tbody tr.order-completed td{background:#e8f7ed;color:#176b45}
 .recommendation-panel .stock-source>.primary{display:none}.export-mini .delete-request{color:#b4232a;border-color:#f1c8cc;background:#fff5f5}
 .recommendation-panel .step-title small{font-size:0}.recommendation-panel .step-title small:after{content:"Busque y seleccione manualmente uno o varios grupos hasta completar el pedido; puede destildarlos en cualquier momento.";font-size:9.5px}
+.history-summary+section .orders-table th:first-child{font-size:0}.history-summary+section .orders-table th:first-child:after{content:"Seleccionar";font-size:8.5px}

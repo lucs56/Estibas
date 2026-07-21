@@ -17,22 +17,40 @@ function downloadBlob(blob: Blob, filename: string) {
 }
 
 export async function exportVeExcel(request: VeRequest) {
+  const workbook=await buildVeWorkbook([request],false);
+  const buffer = await workbook.xlsx.writeBuffer();
+  downloadBlob(new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `${safeFilename(request.brand)}-${safeFilename(request.number)}.xlsx`);
+}
+
+export async function exportWeeklyVeExcel(requests:VeRequest[]){
+  if(!requests.length)throw new Error("Seleccione al menos una solicitud.");
+  const workbook=await buildVeWorkbook(requests,true);
+  const buffer=await workbook.xlsx.writeBuffer();
+  const week=formatDate(requests[0].possibleDressingDate).replace(/\//g,"-");
+  downloadBlob(new Blob([buffer],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),`Solicitud de VE Sem ${week}.xlsx`);
+}
+
+async function buildVeWorkbook(requests:VeRequest[],yellowTabs:boolean){
   const ExcelJS = await import("exceljs");
   const response = await fetch("/examples/Solicitud-VE-template.xlsx");
   if (!response.ok) throw new Error("No se pudo cargar la plantilla de Solicitud VE.");
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(await response.arrayBuffer());
   const template = workbook.worksheets[0];
-  const units=request.unitsPerBox??Number(request.presentation.match(/^\d+/)?.[0]??0);
-  const groups=groupAllocationsByLot(request.allocations??[]);
-  const sheets=groups.length?groups:[{lot:request.lots.join(" / "),cut:request.cut,fillingDate:request.fillingDate,productCode:request.productCode,product:request.brand,availableBottles:request.totalStockBottles,usedBottles:request.requestedBottles,items:[]}];
-  sheets.forEach((group,index)=>{
-    const sheet=index===0?template:cloneWorksheet(template,workbook.addWorksheet(`temporal-${index}`));
-    sheet.name=uniqueSheetName(workbook,`${request.brand} ${group.lot}`,sheet);
-    fillVeSheet(sheet,request,{lot:group.lot,cut:group.cut||request.cut,fillingDate:group.fillingDate,productCode:group.productCode,stock:group.availableBottles,used:group.usedBottles,boxes:caseQuantity(group.usedBottles,units)},units);
-  });
-  const buffer = await workbook.xlsx.writeBuffer();
-  downloadBlob(new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `${safeFilename(request.brand)}-${safeFilename(request.number)}.xlsx`);
+  let sheetIndex=0;
+  for(const request of requests){
+    const units=request.unitsPerBox??Number(request.presentation.match(/^\d+/)?.[0]??0);
+    const groups=groupAllocationsByLot(request.allocations??[]);
+    const sheets=groups.length?groups:[{lot:request.lots.join(" / "),cut:request.cut,fillingDate:request.fillingDate,productCode:request.productCode,product:request.brand,availableBottles:request.totalStockBottles,usedBottles:request.requestedBottles,items:[]}];
+    for(const group of sheets){
+      const sheet=sheetIndex++===0?template:cloneWorksheet(template,workbook.addWorksheet(`temporal-${sheetIndex}`));
+      const wineName=group.product||`${request.brand} ${request.variety}`;
+      sheet.name=uniqueSheetName(workbook,wineName,sheet);
+      if(yellowTabs)(sheet.properties as unknown as {tabColor?:{argb:string}}).tabColor={argb:"FFFFFF00"};
+      fillVeSheet(sheet,request,{lot:group.lot,cut:group.cut||request.cut,fillingDate:group.fillingDate,productCode:group.productCode,stock:group.availableBottles,used:group.usedBottles,boxes:caseQuantity(group.usedBottles,units)},units);
+    }
+  }
+  return workbook;
 }
 
 function fillVeSheet(sheet:Worksheet,request:VeRequest,allocation:{lot:string;cut:string;fillingDate:string;productCode:string;stock:number;used:number;boxes:number},units:number){
@@ -77,6 +95,19 @@ function uniqueSheetName(workbook:{worksheets:Worksheet[]},raw:string,current:Wo
 }
 
 export async function exportVePdf(request: VeRequest) {
+  const doc=await createVePdf(request);
+  doc.save(`${safeFilename(request.number)}.pdf`);
+}
+
+export async function printVePdf(request:VeRequest){
+  const doc=await createVePdf(request);
+  doc.autoPrint();
+  const url=URL.createObjectURL(doc.output("blob"));
+  window.open(url,"_blank","noopener,noreferrer");
+  window.setTimeout(()=>URL.revokeObjectURL(url),60_000);
+}
+
+async function createVePdf(request:VeRequest){
   const { jsPDF } = await import("jspdf");
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const left = 12; const right = 198; let y = 13;
@@ -99,5 +130,5 @@ export async function exportVePdf(request: VeRequest) {
   const section = (title: string, rows: number) => { doc.setFillColor(242, 243, 244); doc.rect(left, y, right - left, 8, "F"); doc.rect(left, y, right - left, 8); doc.setFont("helvetica", "bold"); doc.text(title, 105, y + 5.5, { align: "center" }); y += 8; doc.setFont("helvetica", "normal"); for (let i = 0; i < rows; i += 1) line(8); };
   section("LABORATORIO · ANÁLISIS", 5); section("LEGALES · ANÁLISIS QUÍMICO / ALÉRGENOS", 5); section("ENÓLOGO · DEGUSTACIÓN", 3);
   doc.setFontSize(7); doc.text(`${request.number} · Generada ${new Date(request.createdAt).toLocaleString("es-AR")}`, left, 292);
-  doc.save(`${safeFilename(request.number)}.pdf`);
+  return doc;
 }

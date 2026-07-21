@@ -29,6 +29,9 @@ Aplicación industrial para Fraccionamiento de vinos. Importa los archivos reale
 - Pedidos pendientes o agregados se muestran en amarillo y se pueden tildar; los realizados quedan verdes. Generar una VE los marca automáticamente.
 - Historial permite tildar solicitudes y exportar un Excel de muestras con producto, descripción, lote, corte, PIN° y solicitud.
 - Las solicitudes de prueba pueden eliminarse desde Historial. La operación devuelve exactamente las botellas de cada asignación al stock y deja nuevamente el pedido como pendiente.
+- La vista previa fue retirada: después de **Generar Solicitud VE** se despliega un menú para descargar Excel, descargar PDF o imprimir directamente.
+- Historial conserva dos acciones independientes sobre las solicitudes seleccionadas: **Reporte de muestras** y **Generar Solicitud VE semanal**.
+- El archivo semanal se llama `Solicitud de VE Sem dd-mm-aaaa.xlsx`, contiene el formulario completo y crea una pestaña amarilla por combinación de vino/lote. Los nombres repetidos reciben `(2)`, `(3)`, etc. automáticamente.
 - Acceso interno inicial `admin` / `1234`, alta y eliminación de usuarios con contraseña y cierre de sesión.
 - Exportación a Excel sobre la plantilla original, PDF e impresión.
 - Historial buscable por fecha, cliente, PN y lote, con reexportación.
