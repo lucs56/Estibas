@@ -15,7 +15,7 @@ Aplicación industrial para Fraccionamiento de vinos. Importa los archivos reale
 - Orden FEFO y filtros por cliente, producto, línea, país, variedad, cosecha, código y lote.
 - Pedidos obtenidos de los bloques **PROGRAMACIÓN LÍNEA 1, 2 y 3**, mostrando exclusivamente filas cuya acción sea **VESTIR**. La simulación conserva los datos desde `PIN°` hasta `Botellas`.
 - Generación de Solicitud VE con validación de stock suficiente y selección de estibas del último reporte importado.
-- Asignación FEFO acumulativa: si el lote más antiguo no alcanza, consume su saldo y continúa con los lotes siguientes hasta completar exactamente el pedido.
+- Selección manual de uno o varios grupos de stock. Si un lote no alcanza, se pueden marcar otros hasta completar el pedido y destildarlos libremente; el botón automático FEFO fue retirado de la interfaz.
 - Consolidación del stock por producto + lote + fecha de llenado: los códigos de barra no se presentan uno por uno; se muestra el stock total del grupo y cuánto se ocupa realmente.
 - Al reimportar el reporte, los consumos de Solicitudes VE anteriores se vuelven a aplicar por producto, descripción, lote, corte y fecha. Se muestra el saldo y el detalle “ya ocupaste … para el pedido PIN° …”.
 - La agrupación normaliza espacios, guiones y mayúsculas del reporte, y FEFO agota el stock consolidado del grupo antes de continuar con el lote siguiente.
@@ -28,6 +28,7 @@ Aplicación industrial para Fraccionamiento de vinos. Importa los archivos reale
 - La vista Estibas reproduce y consolida las columnas operativas; `Fecha elaboración` muestra el valor calculado desde lotes.
 - Pedidos pendientes o agregados se muestran en amarillo y se pueden tildar; los realizados quedan verdes. Generar una VE los marca automáticamente.
 - Historial permite tildar solicitudes y exportar un Excel de muestras con producto, descripción, lote, corte, PIN° y solicitud.
+- Las solicitudes de prueba pueden eliminarse desde Historial. La operación devuelve exactamente las botellas de cada asignación al stock y deja nuevamente el pedido como pendiente.
 - Acceso interno inicial `admin` / `1234`, alta y eliminación de usuarios con contraseña y cierre de sesión.
 - Exportación a Excel sobre la plantilla original, PDF e impresión.
 - Historial buscable por fecha, cliente, PN y lote, con reexportación.

@@ -5,7 +5,7 @@ import * as XLSX from "xlsx";
 import { evaluateStack, weekStartIso } from "../lib/expiry";
 import { parseEstibasFile, parseLotsFile } from "../lib/importers";
 import { parseDressingProgram } from "../lib/sheet-program";
-import { allocateFefo, groupAllocationsByLot, reconcileHistoricalConsumption, stockGroupKey } from "../lib/allocations";
+import { allocateFefo, groupAllocationsByLot, reconcileHistoricalConsumption, restoreRequestConsumption, stockGroupKey } from "../lib/allocations";
 import { caseQuantity, observationMarks, varietyWithClosure } from "../lib/exporters";
 import type { LotDate, StackRecord } from "../lib/types";
 
@@ -143,4 +143,12 @@ test("importa reportes grandes sin truncar filas",async()=>{
   const file=new File([XLSX.write(book,{type:"array",bookType:"xlsx"})],"estibas-grandes.xlsx");
   const result=await parseEstibasFile(file);
   assert.equal(result.stacks.length,2500);
+});
+
+test("eliminar una solicitud devuelve exactamente el stock consumido",()=>{
+  const current=stack({id:"s",availableQuantity:1583,originalQuantity:4103,extraData:{reportedQuantity:4103,consumptions:[{requestNumber:"VE-1",pn:"E1",bottles:2520}],totalConsumed:2520}});
+  const request={id:"r",number:"VE-1",createdAt:"2026-07-20",requestDate:"2026-07-20",fillingDate:"2026-04-22",possibleDressingDate:"2026-07-20",line:"Línea 3",brand:"ANIMAL",variety:"MALBEC",harvest:"2025",cut:"",lots:["26110"],selectedStackIds:["s"],totalStockBottles:4103,requestedBottles:2520,productCode:"P",presentation:"12 × 750 mL",market:"Externo",requestedBoxes:210,unitsPerBox:12,client:"C",pn:"E1",destination:"USA",observed:false,allocations:[{stackId:"s",lot:"26110",cut:"",pallet:"1",barcode:"018000000000",productCode:"P",product:"Vino",availableBottles:4103,groupAvailableBottles:4103,usedBottles:2520,fillingDate:"2026-04-20"}],alcohol:"",responsible:"",status:"generated" as const};
+  const restored=restoreRequestConsumption([current],request);
+  assert.equal(restored[0]?.availableQuantity,4103);
+  assert.deepEqual(restored[0]?.extraData.consumptions,[]);
 });

@@ -46,11 +46,30 @@ export function reconcileHistoricalConsumption(stacks:StackRecord[],requests:VeR
     for(const stack of members){
       const physical=stack.availableQuantity||stack.originalQuantity;const deduction=Math.min(physical,remaining);
       stack.availableQuantity=Math.max(0,physical-deduction);stack.used=stack.availableQuantity===0;
-      stack.extraData={...stack.extraData,consumptions:usages,totalConsumed:usages.reduce((n,item)=>n+item.bottles,0)};
+      stack.extraData={...stack.extraData,reportedQuantity:physical,consumptions:usages,totalConsumed:usages.reduce((n,item)=>n+item.bottles,0)};
       remaining-=deduction;
     }
   }
   return evaluated;
+}
+
+/** Returns the quantities of one deleted request to the current stock snapshot. */
+export function restoreRequestConsumption(stacks:StackRecord[],request:VeRequest){
+  const result=stacks.map(stack=>({...stack,extraData:{...stack.extraData}}));
+  for(const allocation of request.allocations??[]){
+    let remaining=allocation.usedBottles;
+    const exact=result.find(stack=>stack.id===allocation.stackId);
+    const candidates=exact?[exact]:result.filter(stack=>consumptionKey(stack.productCode,stack.product,stack.lot,stack.cut,stack.fractionationDate)===consumptionKey(allocation.productCode,allocation.product,allocation.lot,allocation.cut,allocation.fillingDate));
+    for(const stack of candidates){
+      if(remaining<=0)break;
+      const reported=Number(stack.extraData.reportedQuantity??stack.availableQuantity+remaining);
+      const restored=Math.min(remaining,Math.max(0,reported-stack.availableQuantity));
+      stack.availableQuantity+=restored;stack.used=false;remaining-=restored;
+      const consumptions=((stack.extraData.consumptions as Array<{requestNumber:string;pn:string;bottles:number}>)??[]).filter(item=>item.requestNumber!==request.number);
+      stack.extraData={...stack.extraData,consumptions,totalConsumed:Math.max(0,Number(stack.extraData.totalConsumed??0)-restored)};
+    }
+  }
+  return result;
 }
 
 function consumptionKey(productCode:string,product:string,lot:string,cut:string,date:string|null){return [canonical(productCode),canonical(product),canonical(lot),canonical(cut),date??""].join("|");}
