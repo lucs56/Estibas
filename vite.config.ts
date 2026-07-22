@@ -18,8 +18,8 @@ const localBindingConfig = {
     ? [
         {
           binding: d1,
-          database_name: cloudflareDatabaseName,
-          database_id: cloudflareDatabaseId,
+          database_name: "estibas",
+          database_id: "5fec6501-cab3-400f-b1fe-4e682876f779",
         },
       ]
     : [],
