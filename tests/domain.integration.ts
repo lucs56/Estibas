@@ -6,7 +6,8 @@ import { evaluateStack, weekStartIso } from "../lib/expiry";
 import { parseEstibasFile, parseLotsFile } from "../lib/importers";
 import { parseDressingProgram } from "../lib/sheet-program";
 import { allocateFefo, groupAllocationsByLot, reconcileHistoricalConsumption, restoreRequestConsumption, stockGroupKey } from "../lib/allocations";
-import { caseQuantity, observationMarks, varietyWithClosure } from "../lib/exporters";
+import { caseQuantity, observationMarks, sheetWineName, varietyWithClosure } from "../lib/exporters";
+import { bottleSizeMl, closureKind, formatBottleSize } from "../lib/product-identity";
 import { buildSampleReportRows } from "../lib/sample-report";
 import type { LotDate, StackRecord, VeRequest } from "../lib/types";
 
@@ -124,6 +125,19 @@ test("marca exclusivamente SI o NO para estiba observada", () => {
 test("agrega SCREW a la variedad sólo cuando lo indica Tapón/SC", () => {
   assert.equal(varietyWithClosure({variety:"CHARDONNAY",closure:"Screw"}),"CHARDONNAY SCREW");
   assert.equal(varietyWithClosure({variety:"MALBEC",closure:"Tapón"}),"MALBEC");
+});
+
+test("identifica formato y cierre para evitar mezclar estibas incompatibles", () => {
+  assert.equal(bottleSizeMl("12 × 750 mL"),750);
+  assert.equal(bottleSizeMl("EST ALAMOS 1X350 SC"),350);
+  assert.equal(bottleSizeMl("Botella 187 cc"),187);
+  assert.equal(closureKind("CHARDONNAY SCREW"),"screw");
+  assert.equal(closureKind("MALBEC TAPÓN"),"cork");
+  assert.equal(formatBottleSize(750),"750 cc");
+});
+
+test("nombra cada hoja con marca y variedad del pedido", () => {
+  assert.equal(sheetWineName({brand:"ALAMOS",variety:"SYRAH"}),"ALAMOS SYRAH");
 });
 
 test("deduce año y día juliano del lote y normaliza el inicio de semana", () => {

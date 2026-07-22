@@ -44,7 +44,7 @@ async function buildVeWorkbook(requests:VeRequest[],yellowTabs:boolean){
     const sheets=groups.length?groups:[{lot:request.lots.join(" / "),cut:request.cut,fillingDate:request.fillingDate,productCode:request.productCode,product:request.brand,availableBottles:request.totalStockBottles,usedBottles:request.requestedBottles,items:[]}];
     for(const group of sheets){
       const sheet=sheetIndex++===0?template:cloneWorksheet(template,workbook.addWorksheet(`temporal-${sheetIndex}`));
-      const wineName=group.product||`${request.brand} ${request.variety}`;
+      const wineName=sheetWineName(request);
       sheet.name=uniqueSheetName(workbook,wineName,sheet);
       if(yellowTabs)(sheet.properties as unknown as {tabColor?:{argb:string}}).tabColor={argb:"FFFFFF00"};
       fillVeSheet(sheet,request,{lot:group.lot,cut:group.cut||request.cut,fillingDate:group.fillingDate,productCode:group.productCode,stock:group.availableBottles,used:group.usedBottles,boxes:caseQuantity(group.usedBottles,units)},units);
@@ -79,6 +79,7 @@ function fillVeSheet(sheet:Worksheet,request:VeRequest,allocation:{lot:string;cu
 export function caseQuantity(usedBottles:number,unitsPerBox:number){return Math.ceil(usedBottles/Math.max(1,unitsPerBox));}
 export function observationMarks(observed:boolean){return {yes:observed?"X":"",no:observed?"":"X"};}
 export function varietyWithClosure(request:Pick<VeRequest,"variety"|"closure">){return request.closure?.trim().toLowerCase().includes("screw")?`${request.variety} SCREW`:request.variety;}
+export function sheetWineName(request:Pick<VeRequest,"brand"|"variety">){return [request.brand,request.variety].map(value=>value.trim()).filter(Boolean).join(" ")||"Producto";}
 
 function cloneWorksheet(source:Worksheet,target:Worksheet){
   source.columns.forEach((column,index)=>{target.getColumn(index+1).width=column.width;target.getColumn(index+1).hidden=column.hidden;});
