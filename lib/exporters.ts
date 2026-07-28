@@ -37,6 +37,7 @@ async function buildVeWorkbook(requests:VeRequest[],yellowTabs:boolean){
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(await response.arrayBuffer());
   const template = workbook.worksheets[0];
+  prepareRevisionHeader(template);
   let sheetIndex=0;
   for(const request of requests){
     const units=request.unitsPerBox??Number(request.presentation.match(/^\d+/)?.[0]??0);
@@ -51,6 +52,24 @@ async function buildVeWorkbook(requests:VeRequest[],yellowTabs:boolean){
     }
   }
   return workbook;
+}
+
+export function prepareRevisionHeader(sheet:Worksheet){
+  const approvalFont={...sheet.getCell("L2").font};
+  for(const range of ["L2:P2","L3:P4","L2:P4"]){
+    try{sheet.unMergeCells(range);}catch{}
+  }
+  for(let row=2;row<=4;row+=1){
+    for(let column=12;column<=16;column+=1)sheet.getCell(row,column).value=null;
+  }
+  sheet.getCell("K2").value="Rev. 08";
+  sheet.mergeCells("L2:P4");
+  const approval=sheet.getCell("L2");
+  approval.value="Aprobó: Leopoldo Kuschnaroff";
+  approval.font={...approvalFont,bold:false};
+  approval.alignment={horizontal:"center",vertical:"middle",wrapText:true};
+  const edge={style:"medium" as const,color:{indexed:64}};
+  approval.border={top:edge,left:edge,bottom:edge,right:edge};
 }
 
 function fillVeSheet(sheet:Worksheet,request:VeRequest,allocation:{lot:string;cut:string;fillingDate:string;productCode:string;stock:number;used:number;boxes:number},units:number){
