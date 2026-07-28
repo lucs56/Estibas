@@ -26,6 +26,7 @@ export type ProductionOrder = {
 
 export type VeRequest = {
   id: string; number: string; createdAt: string; requestDate: string; fillingDate: string;
+  sourceOrderId?: string;
   possibleDressingDate: string; line: string; brand: string; variety: string; harvest: string;
   cut: string; lots: string[]; selectedStackIds: string[]; totalStockBottles: number;
   requestedBottles: number; productCode: string; presentation: string; market: string;

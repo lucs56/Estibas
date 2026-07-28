@@ -11,6 +11,7 @@ import VeScreen from "@/components/screens/ve-screen";
 import { evaluateStack, formatDate, statusLabel } from "@/lib/expiry";
 import { reconcileHistoricalConsumption } from "@/lib/allocations";
 import { exampleFile, parseEstibasFile, parseLotsFile } from "@/lib/importers";
+import type { RequestCommitConfirmation } from "@/lib/request-state";
 import { defaultCatalogs, defaultSettings, sampleAudit, sampleLots, sampleOrders, sampleRequests, sampleStacks, sampleUsers } from "@/lib/sample-data";
 import type { AppCatalogs, AppSettings, AppUser, AuditEntry, EvaluatedStack, ExpiryStatus, LotDate, PersistedAppState, ProductionOrder, StackRecord, VeRequest } from "@/lib/types";
 
@@ -85,7 +86,7 @@ export default function ManagementApp({ viewer }: { viewer: Viewer }) {
   },[]);
 
   const refreshSharedState=useCallback(async(silent=true)=>{
-    if(sharedRequestRef.current)return;
+    if(sharedRequestRef.current)return false;
     sharedRequestRef.current=true;
     try{
       const response=await fetch(apiUrl(`/api/state?stamp=${Date.now()}`),{cache:"no-store",headers:{"cache-control":"no-cache"}});
@@ -93,29 +94,48 @@ export default function ManagementApp({ viewer }: { viewer: Viewer }) {
       if(!response.ok)throw new Error(result.error||"No se pudo actualizar el historial.");
       const revision=Number(result.revision??0);
       if(result.state&&revision>revisionRef.current)applySharedState(result.state,revision);
+      setPersistence("saved");
       if(!silent)setToast({tone:"ok",message:"Historial actualizado desde la base compartida."});
+      return true;
     }catch(error){
+      setPersistence("error");
       if(!silent)setToast({tone:"error",message:error instanceof Error?error.message:"No se pudo actualizar el historial."});
+      return false;
     }finally{sharedRequestRef.current=false;}
   },[applySharedState]);
 
   useEffect(() => {
     let active = true;
-    fetch(apiUrl("/api/state"), { cache: "no-store" }).then(async response => {
-      if (!response.ok) throw new Error("No se pudo recuperar el estado guardado.");
-      return response.json() as Promise<{ state: (Partial<PersistedAppState> & { version?: number }) | null; revision?: number }>;
-    }).then(({ state,revision }) => {
-      if (!active) return;
-      if (state) applySharedState(state,Number(revision??0));
-      setIsHydrated(true);
-      setPersistence(state ? "saved" : "ready");
-    }).catch(() => {
-      if (!active) return;
-      setIsHydrated(true);
-      setPersistence("error");
-    });
+    void (async()=>{
+      try{
+        const response=await fetch(apiUrl("/api/state"),{cache:"no-store",headers:{"cache-control":"no-cache"}});
+        const result=await readJsonResponse<{state:(Partial<PersistedAppState>&{version?:number})|null;revision?:number;error?:string}>(response);
+        if(!response.ok)throw new Error(result.error||"No se pudo recuperar el estado guardado.");
+        if(!active)return;
+        if(result.state){
+          applySharedState(result.state,Number(result.revision??0));
+        }else{
+          const initialState:PersistedAppState={version:5,stacks:sampleStacks,lots:sampleLots,orders:sampleOrders,requests:sampleRequests,users:sampleUsers,catalogs:defaultCatalogs,audit:sampleAudit,settings:defaultSettings};
+          const initializeResponse=await fetch(apiUrl("/api/state"),{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify({state:initialState,baseRevision:0,actor:viewer.name||"internal-user"})});
+          const initialized=await readJsonResponse<{state?:PersistedAppState|null;revision?:number;error?:string}>(initializeResponse);
+          if(initializeResponse.status===409&&initialized.state){
+            applySharedState(initialized.state,Number(initialized.revision??0));
+          }else{
+            if(!initializeResponse.ok||!initialized.state)throw new Error(initialized.error||"No se pudo inicializar la base compartida.");
+            applySharedState(initialized.state,Number(initialized.revision??0));
+          }
+        }
+        if(!active)return;
+        setIsHydrated(true);
+        setPersistence("saved");
+      }catch{
+        if(!active)return;
+        setIsHydrated(true);
+        setPersistence("error");
+      }
+    })();
     return () => { active = false; };
-  }, [applySharedState]);
+  }, [applySharedState,viewer.name]);
 
   useEffect(() => {
     if (!isHydrated) return;
@@ -147,19 +167,39 @@ export default function ManagementApp({ viewer }: { viewer: Viewer }) {
 
   const mutateSharedState=async(body:Record<string,unknown>)=>{
     setPersistence("saving");
+    await saveQueue.current.catch(()=>undefined);
     const response=await fetch(apiUrl("/api/state"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({...body,actor:viewerName})});
-    const result=await response.json() as {state?:PersistedAppState|null;revision?:number;error?:string};
+    const result=await readJsonResponse<{state?:PersistedAppState|null;revision?:number;error?:string;confirmation?:RequestCommitConfirmation|null}>(response);
     if(!response.ok||!result.state)throw new Error(result.error||"No se pudo actualizar el historial compartido.");
     applySharedState(result.state,Number(result.revision??revisionRef.current));
     setPersistence("saved");
+    return result;
   };
   const importStacks=async(file:File)=>{setBusy("estibas");try{const result=await parseEstibasFile(file);const reconciled=reconcileHistoricalConsumption(result.stacks,requests,lots);setStacks(reconciled);setSelected(new Set());const deducted=reconciled.reduce((n,s)=>n+Number(s.extraData.totalConsumed??0),0);setImportSummary(`${result.stacks.length} filas importadas sin límite; se conservaron todas las columnas y se reconciliaron los consumos históricos.`);addAudit("Importación","Estibas",`${result.stacks.length} registros desde ${file.name}; consumos históricos aplicados`);notify(`Importación completa: ${result.stacks.length} estibas. Stock ya utilizado descontado automáticamente.`);}catch(error){notify(error instanceof Error?error.message:"No se pudo importar el reporte.","error");}finally{setBusy(null);}};
   const importLots=async(file:File)=>{setBusy("lotes");try{const result=await parseLotsFile(file);setLots(current=>[...new Map([...current,...result.lots].map(lot=>[lot.code,lot])).values()].sort((a,b)=>a.code.localeCompare(b.code)));setImportSummary(`${result.lots.length} lotes agregados (${result.years.join(", ")}) sin borrar el calendario 2016–2026.`);addAudit("Importación","Lotes",`${result.lots.length} lotes agregados desde ${file.name}`);notify(`Lotes agregados: ${result.lots.length}. Los años anteriores permanecen fijos.`);}catch(error){notify(error instanceof Error?error.message:"No se pudo importar el archivo de lotes.","error");}finally{setBusy(null);}};
   const loadStacks=async()=>{try{await importStacks(await exampleFile("/examples/ESTIBAS-ejemplo.xlsx","ESTIBAS-ejemplo.xlsx"));}catch(error){notify(error instanceof Error?error.message:"No se pudo cargar el archivo de ejemplo.","error");}};
   const loadLots=async()=>{try{await importLots(await exampleFile("/examples/Lotes_2016_2026.xlsx","Lotes_2016_2026.xlsx"));}catch(error){notify(error instanceof Error?error.message:"No se pudo cargar el archivo de lotes.","error");}};
-  const syncOrders=async()=>{setBusy("sheets");try{const params=new URLSearchParams({spreadsheetId:settings.spreadsheetId});const response=await fetch(apiUrl(`/api/google-sheets?${params}`),{cache:"no-store",headers:{"cache-control":"no-cache"}});const result=await response.json() as {orders?:ProductionOrder[];synchronizedAt?:string;error?:string};if(!response.ok)throw new Error(result.error||"No se pudo leer Google Sheets.");const fresh=result.orders??[];setOrders(previous=>fresh.map(item=>{const old=previous.find(value=>value.id===item.id||(value.pn===item.pn&&value.internalCode===item.internalCode&&value.lineNumber===item.lineNumber));return {...item,veCompleted:old?.veCompleted??requests.some(r=>r.pn===item.pn&&r.productCode===item.internalCode),highlightedNew:old?old.highlightedNew:false};}));addAudit("Sincronización","Google Sheets",`${fresh.length} pedidos VESTIR leídos en vivo; líneas 1, 2 y 3`);notify(`Programación actualizada: ${fresh.length} pedidos; los agregados quedan amarillos.`);}catch(error){notify(error instanceof Error?error.message:"No se pudo actualizar Google Sheets.","error");}finally{setBusy(null);}};
+  const syncOrders=async()=>{setBusy("sheets");try{const params=new URLSearchParams({spreadsheetId:settings.spreadsheetId});const response=await fetch(apiUrl(`/api/google-sheets?${params}`),{cache:"no-store",headers:{"cache-control":"no-cache"}});const result=await response.json() as {orders?:ProductionOrder[];synchronizedAt?:string;error?:string};if(!response.ok)throw new Error(result.error||"No se pudo leer Google Sheets.");const fresh=result.orders??[];setOrders(previous=>fresh.map(item=>{const old=previous.find(value=>value.id===item.id||(value.pn===item.pn&&value.internalCode===item.internalCode&&value.lineNumber===item.lineNumber));return {...item,veCompleted:old?.veCompleted??requests.some(r=>sameRequestOrder(r,item)),highlightedNew:old?old.highlightedNew:false};}));addAudit("Sincronización","Google Sheets",`${fresh.length} pedidos VESTIR leídos en vivo; líneas 1, 2 y 3`);notify(`Programación actualizada: ${fresh.length} pedidos; los agregados quedan amarillos.`);}catch(error){notify(error instanceof Error?error.message:"No se pudo actualizar Google Sheets.","error");}finally{setBusy(null);}};
   const chooseOrder=(order:ProductionOrder)=>{setActiveOrder(order);setSelected(new Set());setPage("ve");};
-  const generate=(request:VeRequest)=>{void mutateSharedState({action:"createRequest",request}).then(()=>notify(`${request.number} guardada para todos los usuarios y el pedido quedó realizado.`)).catch(error=>{setPersistence("error");notify(error instanceof Error?error.message:"No se pudo guardar la solicitud.","error");});};
+  const generate=async(request:VeRequest)=>{
+    if(persistence!=="saved")throw new Error("La base compartida todavía no está lista. Espere a que indique «Cambios guardados».");
+    try{
+      const result=await mutateSharedState({action:"createRequest",request});
+      const saved=result.state?.requests.find(item=>item.id===request.id);
+      const expectedDeduction=(request.allocations??[]).reduce((total,item)=>total+item.usedBottles,0);
+      if(!saved||!result.confirmation||result.confirmation.stockDeductedBottles!==expectedDeduction||!result.confirmation.orderCompleted){
+        throw new Error("La base no confirmó completamente el historial, el stock y el pedido.");
+      }
+      setSelected(new Set());
+      notify(`${request.number} guardada, stock descontado y pedido marcado en verde.`);
+      return saved;
+    }catch(error){
+      setPersistence("error");
+      await refreshSharedState(true);
+      notify(error instanceof Error?error.message:"No se pudo guardar la solicitud.","error");
+      throw error;
+    }
+  };
   const deleteRequest=(request:VeRequest)=>{void mutateSharedState({action:"deleteRequest",requestId:request.id}).then(()=>notify(`${request.number} eliminada. El stock se recuperó para todos los usuarios.`)).catch(error=>{setPersistence("error");notify(error instanceof Error?error.message:"No se pudo eliminar la solicitud.","error");});};
   const updateRequestSamples=(value:VeRequest[])=>{const next=new Map(value.map(item=>[item.id,Boolean(item.samplesPrepared)]));const changes=requests.filter(item=>next.get(item.id)!==Boolean(item.samplesPrepared)).map(item=>({id:item.id,samplesPrepared:Boolean(next.get(item.id))}));if(!changes.length)return;void mutateSharedState({action:"setRequestSamples",changes}).catch(error=>{setPersistence("error");notify(error instanceof Error?error.message:"No se pudo actualizar la selección.","error");});};
   const saveSettings=(value:AppSettings)=>{if(value.expirationDays<=0||value.urgentDays<0||value.warningDays<=value.urgentDays||value.expirationDays<=value.warningDays){notify("Revise los parámetros: alerta urgente < preventiva < vencimiento.","error");return;}setSettings(value);addAudit("Configuración","Parámetros",`Vencimiento ${value.expirationDays} días; alertas ${value.urgentDays}/${value.warningDays}`);notify("Configuración guardada.");};
@@ -170,7 +210,7 @@ export default function ManagementApp({ viewer }: { viewer: Viewer }) {
   if(page==="dashboard") screen=<Dashboard evaluated={evaluated} counts={counts} filter={filter} onFilter={setFilter} go={setPage}/>;
   else if(page==="stacks") screen=<StacksScreen stacks={evaluated} initialStatus={filter} search={stackSearch} onSearch={setStackSearch} selected={selected} onSelected={setSelected} onImportStacks={importStacks} onImportLots={importLots} onLoadExampleStacks={loadStacks} onLoadExampleLots={loadLots} onGoVe={()=>setPage("ve")} busy={busy} importSummary={importSummary}/>;
   else if(page==="orders") screen=<OrdersScreen orders={orders} onSync={syncOrders} onSelect={chooseOrder} onToggle={id=>setOrders(current=>current.map(order=>order.id===id?{...order,veCompleted:!order.veCompleted,highlightedNew:false}:order))} busy={busy==="sheets"}/>;
-  else if(page==="ve") screen=<VeScreen key={activeOrder?.id ?? "order-picker"} orders={orders} activeOrder={activeOrder} onOrder={setActiveOrder} stacks={evaluated} selected={selected} onSelected={setSelected} onGenerate={generate} onGoStacks={()=>setPage("stacks")}/>;
+  else if(page==="ve") screen=<VeScreen key={activeOrder?.id ?? "order-picker"} orders={orders} activeOrder={activeOrder} onOrder={setActiveOrder} stacks={evaluated} selected={selected} onSelected={setSelected} onGenerate={generate} persistenceReady={persistence==="saved"} onGoStacks={()=>setPage("stacks")}/>;
   else if(page==="history") screen=<HistoryScreen requests={requests} onRequests={updateRequestSamples} onDelete={deleteRequest} onRefresh={()=>void refreshSharedState(false)}/>;
   else if(currentRole==="Administrador") screen=<AdminScreen catalogs={catalogs} onCatalogs={value=>{setCatalogs(value);addAudit("Actualización","Catálogos","Se modificaron valores maestros");}} users={users} onUsers={value=>{setUsers(value);addAudit("Actualización","Usuarios","Se modificaron usuarios o roles");}} settings={settings} onSettings={saveSettings} audit={audit} onPasswordAudit={username=>addAudit("Cambio de contraseña por administrador","Seguridad",username)}/>;
   else screen=<Dashboard evaluated={evaluated} counts={counts} filter={filter} onFilter={setFilter} go={setPage}/>;
@@ -193,6 +233,9 @@ export default function ManagementApp({ viewer }: { viewer: Viewer }) {
 }
 
 async function passwordHash(value:string){const bytes=new TextEncoder().encode(value);const digest=await crypto.subtle.digest("SHA-256",bytes);return [...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,"0")).join("");}
+async function readJsonResponse<T>(response:Response):Promise<T>{const text=await response.text();try{return JSON.parse(text) as T;}catch{throw new Error(response.ok?"La respuesta del servidor no es válida.":"El servidor no pudo guardar los cambios. Intente nuevamente.");}}
+function sameRequestOrder(request:VeRequest,order:ProductionOrder){return Boolean(request.sourceOrderId&&request.sourceOrderId===order.id)||(canonical(request.pn)===canonical(order.pn)&&canonical(request.productCode)===canonical(order.internalCode));}
+function canonical(value:string){return String(value??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase().replace(/[^A-Z0-9]/g,"");}
 function LoginScreen({users,onLogin}:{users:AppUser[];onLogin:(user:AppUser)=>void}){const [username,setUsername]=useState("");const [password,setPassword]=useState("");const [error,setError]=useState("");const submit=async(event:React.FormEvent)=>{event.preventDefault();const hash=await passwordHash(password);const user=users.find(item=>item.active&&item.username.toLowerCase()===username.trim().toLowerCase()&&item.credentialHash===hash);if(!user){setError("Usuario o contraseña incorrectos.");return;}onLogin(user);};return <div className="login-shell"><form className="login-card" onSubmit={submit}><div className="brand-mark">VE</div><span>Fraccionamiento</span><h1>Gestión de Estibas</h1><p>Ingrese con su usuario interno.</p><label>Usuario<input autoFocus value={username} onChange={event=>setUsername(event.target.value)} autoComplete="username"/></label><label>Contraseña<input type="password" value={password} onChange={event=>setPassword(event.target.value)} autoComplete="current-password"/></label>{error?<div className="login-error">{error}</div>:null}<button className="primary" type="submit">Ingresar</button><small>Acceso inicial: admin / 1234</small></form></div>}
 
 function Dashboard({evaluated,counts,filter,onFilter,go}:{evaluated:EvaluatedStack[];counts:{total:number;byStatus:Record<ExpiryStatus,number>;available:number;used:number;bottles:number};filter:ExpiryStatus|"all";onFilter:(s:ExpiryStatus|"all")=>void;go:(p:PageKey)=>void}) {
