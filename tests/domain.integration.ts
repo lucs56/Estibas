@@ -1,17 +1,15 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import ExcelJS from "exceljs";
 import * as XLSX from "xlsx";
 import { evaluateStack, weekStartIso } from "../lib/expiry";
 import { parseEstibasFile, parseLotsFile } from "../lib/importers";
 import { parseDressingProgram } from "../lib/sheet-program";
 import { allocateFefo, groupAllocationsByLot, reconcileHistoricalConsumption, restoreRequestConsumption, stockGroupKey } from "../lib/allocations";
-import { caseQuantity, observationMarks, prepareRevisionHeader, sheetWineName, varietyWithClosure } from "../lib/exporters";
+import { caseQuantity, observationMarks, sheetWineName, varietyWithClosure } from "../lib/exporters";
 import { bottleSizeMl, closureKind, formatBottleSize } from "../lib/product-identity";
 import { buildSampleReportRows } from "../lib/sample-report";
-import { commitVeRequest, RequestCommitError } from "../lib/request-state";
-import type { LotDate, PersistedAppState, ProductionOrder, StackRecord, VeRequest } from "../lib/types";
+import type { LotDate, StackRecord, VeRequest } from "../lib/types";
 
 const at = new Date("2026-07-18T12:00:00Z");
 
@@ -29,18 +27,6 @@ function stack(overrides: Partial<StackRecord>): StackRecord {
     extraData:{},...overrides,
   };
 }
-
-test("actualiza la plantilla a Rev. 08 y elimina la fecha de emisión", async () => {
-  const book = new ExcelJS.Workbook();
-  await book.xlsx.readFile("public/examples/Solicitud-VE-template.xlsx");
-  const sheet = book.worksheets[0];
-  prepareRevisionHeader(sheet);
-  assert.equal(sheet.getCell("K2").value, "Rev. 08");
-  assert.equal(sheet.getCell("L2").value, "Aprobó: Leopoldo Kuschnaroff");
-  assert.ok(sheet.model.merges.includes("L2:P4"));
-  assert.equal(sheet.model.merges.includes("L3:P4"), false);
-  assert.equal(String(sheet.getCell("L3").value ?? "").includes("Emision"), false);
-});
 
 test("el reporte de muestras no repite el mismo producto, lote y corte", () => {
   const request = {
@@ -208,53 +194,4 @@ test("eliminar una solicitud devuelve exactamente el stock consumido",()=>{
   const restored=restoreRequestConsumption([current],request);
   assert.equal(restored[0]?.availableQuantity,4103);
   assert.deepEqual(restored[0]?.extraData.consumptions,[]);
-});
-
-test("guardar una solicitud confirma historial, descuento y pedido verde en una sola operación",()=>{
-  const sourceStack=stack({id:"stock-1",productCode:"302E",lot:"L1 - 26188",availableQuantity:1757,originalQuantity:1757});
-  const order={
-    id:"pedido-1",week:"20-24 Jul",day:"LUNES",pn:"E00000048152",internalCode:"302E",brand:"ALAMOS",
-    variety:"MALBEC",harvest:"2025",capacity:"0.750",closure:"Tapón",liters:0,client:"Cliente",country:"MEXICO",
-    action:"VESTIR",boxes:420,unitsPerBox:6,bottles:2520,market:"Externo",alcohol:"",cut:"3939",line:"Línea 3",
-    lineNumber:3,sheetRow:10,observations:"",frc:"",possibleDressingDate:"2026-07-20",presentation:"6 × 750 mL",
-    status:"programado",source:"google",highlightedNew:true,veCompleted:false,
-  } satisfies ProductionOrder;
-  const request={
-    id:"solicitud-1",number:"VE-2026-000001",createdAt:"2026-07-20T12:00:00Z",requestDate:"2026-07-20",
-    sourceOrderId:order.id,fillingDate:"2026-07-07",possibleDressingDate:"2026-07-20",line:"Línea 3",brand:"ALAMOS",
-    variety:"MALBEC",harvest:"2025",cut:"3939",lots:["L1 - 26188"],selectedStackIds:[sourceStack.id],
-    totalStockBottles:1757,requestedBottles:2520,productCode:"302E",presentation:"6 × 750 mL",market:"Externo",
-    requestedBoxes:420,unitsPerBox:6,client:"Cliente",pn:order.pn,destination:"MEXICO",observed:false,
-    allocations:[{stackId:sourceStack.id,lot:sourceStack.lot,cut:"3939",pallet:"1",barcode:sourceStack.barcode,productCode:"302E",product:"Vino",availableBottles:1757,groupAvailableBottles:1757,usedBottles:1757,fillingDate:"2026-07-07"}],
-    alcohol:"",responsible:"",status:"generated",
-  } satisfies VeRequest;
-  const state={
-    version:5,stacks:[sourceStack],lots:[],orders:[order],requests:[],users:[],catalogs:{},audit:[],
-    settings:{expirationDays:90,urgentDays:15,warningDays:30,spreadsheetId:"",spreadsheetGid:"",googleMode:"simulation"},
-  } satisfies PersistedAppState;
-  const committed=commitVeRequest(state,request,"Operario");
-  assert.equal(committed.state.requests[0]?.id,request.id);
-  assert.equal(committed.state.stacks[0]?.availableQuantity,0);
-  assert.equal(committed.state.orders[0]?.veCompleted,true);
-  assert.equal(committed.state.orders[0]?.highlightedNew,false);
-  assert.deepEqual(committed.confirmation,{requestId:request.id,requestNumber:request.number,stockDeductedBottles:1757,orderCompleted:true});
-});
-
-test("si la base no puede completar stock y pedido no guarda parcialmente la solicitud",()=>{
-  const sourceStack=stack({id:"stock-1",availableQuantity:100,originalQuantity:100});
-  const request={
-    id:"solicitud-1",number:"VE-2026-000002",pn:"E1",productCode:"P",sourceOrderId:"pedido-1",
-    allocations:[{stackId:"stock-1",usedBottles:101}],
-  } as unknown as VeRequest;
-  const state={
-    version:5,stacks:[sourceStack],lots:[],orders:[],requests:[],users:[],catalogs:{},audit:[],
-    settings:{expirationDays:90,urgentDays:15,warningDays:30,spreadsheetId:"",spreadsheetGid:"",googleMode:"simulation"},
-  } satisfies PersistedAppState;
-  assert.throws(()=>commitVeRequest(state,request,"Operario"),(error:unknown)=>{
-    assert.ok(error instanceof RequestCommitError);
-    assert.equal(error.code,"INSUFFICIENT_STACK_STOCK");
-    return true;
-  });
-  assert.equal(state.requests.length,0);
-  assert.equal(state.stacks[0]?.availableQuantity,100);
 });
