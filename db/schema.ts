@@ -14,4 +14,5 @@ export const appState = sqliteTable("app_state", {
   payload: text("payload").notNull(),
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedBy: text("updated_by").notNull(),
+  revision: integer("revision").notNull().default(0),
 });

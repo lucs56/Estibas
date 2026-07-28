@@ -55,6 +55,7 @@ async function buildVeWorkbook(requests:VeRequest[],yellowTabs:boolean){
 
 function fillVeSheet(sheet:Worksheet,request:VeRequest,allocation:{lot:string;cut:string;fillingDate:string;productCode:string;stock:number;used:number;boxes:number},units:number){
   const set = (cell: string, value: string) => { sheet.getCell(cell).value = value; };
+  prepareRevisionHeader(sheet);
   set("B5", `FECHA DE SOLICITUD: ${request.requestDate.split("-").reverse().join("/")}`);
   set("B6", `FECHA DE LLENADO: ${formatDate(allocation.fillingDate)}`);
   set("B7", `FECHA POSIBLE DE VESTIDO: ${formatDate(request.possibleDressingDate)}`);
@@ -76,13 +77,25 @@ function fillVeSheet(sheet:Worksheet,request:VeRequest,allocation:{lot:string;cu
   for(const address of ["C21","E21"]){const cell=sheet.getCell(address);cell.alignment={...cell.alignment,horizontal:"center",vertical:"middle"};cell.font={...cell.font,bold:true,size:12};}
 }
 
+export function prepareRevisionHeader(sheet:Worksheet){
+  sheet.getCell("K2").value="Rev. 08";
+  for(const range of ["L2:P2","L3:P4","L2:P4"]){
+    if(sheet.model.merges.includes(range))sheet.unMergeCells(range);
+  }
+  sheet.mergeCells("L2:P4");
+  const approval=sheet.getCell("L2");
+  approval.value="Aprobó: Leopoldo Kuschnaroff";
+  approval.alignment={...approval.alignment,horizontal:"center",vertical:"middle",wrapText:true};
+  approval.font={...approval.font,bold:false};
+}
+
 export function caseQuantity(usedBottles:number,unitsPerBox:number){return Math.ceil(usedBottles/Math.max(1,unitsPerBox));}
 export function observationMarks(observed:boolean){return {yes:observed?"X":"",no:observed?"":"X"};}
 export function varietyWithClosure(request:Pick<VeRequest,"variety"|"closure">){return request.closure?.trim().toLowerCase().includes("screw")?`${request.variety} SCREW`:request.variety;}
 export function sheetWineName(request:Pick<VeRequest,"brand"|"variety">){return [request.brand,request.variety].map(value=>value.trim()).filter(Boolean).join(" ")||"Producto";}
 
 function cloneWorksheet(source:Worksheet,target:Worksheet){
-  source.columns.forEach((column,index)=>{target.getColumn(index+1).width=column.width;target.getColumn(index+1).hidden=column.hidden;});
+  source.columns.forEach((column,index)=>{target.getColumn(index+1).width=column.width;target.getColumn(index+1).hidden=Boolean(column.hidden);});
   source.eachRow({includeEmpty:true},(row,rowNumber)=>{const copy=target.getRow(rowNumber);copy.height=row.height;row.eachCell({includeEmpty:true},(cell,columnNumber)=>{const next=copy.getCell(columnNumber);next.value=cell.value;next.style=structuredClone(cell.style);next.numFmt=cell.numFmt;});});
   for(const merge of source.model.merges)target.mergeCells(merge);
   target.pageSetup=structuredClone(source.pageSetup);target.properties=structuredClone(source.properties);target.headerFooter=structuredClone(source.headerFooter);target.views=structuredClone(source.views);
@@ -115,7 +128,7 @@ async function createVePdf(request:VeRequest){
   const line = (height: number) => { doc.rect(left, y, right - left, height); y += height; };
   doc.setFont("helvetica", "normal"); doc.setTextColor(200, 30, 40); doc.setFontSize(12); doc.text("BODEGAS ESMERALDA S.A.", left, y); y += 4;
   doc.setTextColor(20, 20, 20); doc.setFontSize(18); doc.setFont("helvetica", "bold"); doc.text("SOLICITUD DE VESTIDO DE VINOS EN ESTIBA", 105, y + 9, { align: "center" });
-  doc.setFontSize(8); doc.text("R1 IB 03 · Rev. 07", 165, y + 8); line(18);
+  doc.setFontSize(8); doc.text("R1 IB 03 · Rev. 08 · Aprobó: Leopoldo Kuschnaroff", 155, y + 8, { align: "center" }); line(18);
   doc.setFont("helvetica", "normal"); doc.setFontSize(8.4);
   const boxes=request.requestedBoxes??Math.ceil(request.requestedBottles/Math.max(1,request.unitsPerBox??1));
   const fields = [

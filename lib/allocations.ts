@@ -44,7 +44,7 @@ export function reconcileHistoricalConsumption(stacks:StackRecord[],requests:VeR
   for(const [key,members] of groups){
     const usages=consumed.get(key)??[];let remaining=usages.reduce((n,item)=>n+item.bottles,0);
     for(const stack of members){
-      const physical=stack.availableQuantity||stack.originalQuantity;const deduction=Math.min(physical,remaining);
+      const physical=Number(stack.extraData.reportedQuantity??stack.originalQuantity??stack.availableQuantity);const deduction=Math.min(physical,remaining);
       stack.availableQuantity=Math.max(0,physical-deduction);stack.used=stack.availableQuantity===0;
       stack.extraData={...stack.extraData,reportedQuantity:physical,consumptions:usages,totalConsumed:usages.reduce((n,item)=>n+item.bottles,0)};
       remaining-=deduction;

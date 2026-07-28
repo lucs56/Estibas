@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import ExcelJS from "exceljs";
 import * as XLSX from "xlsx";
 import { evaluateStack, weekStartIso } from "../lib/expiry";
 import { parseEstibasFile, parseLotsFile } from "../lib/importers";
 import { parseDressingProgram } from "../lib/sheet-program";
 import { allocateFefo, groupAllocationsByLot, reconcileHistoricalConsumption, restoreRequestConsumption, stockGroupKey } from "../lib/allocations";
-import { caseQuantity, observationMarks, sheetWineName, varietyWithClosure } from "../lib/exporters";
+import { caseQuantity, observationMarks, prepareRevisionHeader, sheetWineName, varietyWithClosure } from "../lib/exporters";
 import { bottleSizeMl, closureKind, formatBottleSize } from "../lib/product-identity";
 import { buildSampleReportRows } from "../lib/sample-report";
 import type { LotDate, StackRecord, VeRequest } from "../lib/types";
@@ -27,6 +28,18 @@ function stack(overrides: Partial<StackRecord>): StackRecord {
     extraData:{},...overrides,
   };
 }
+
+test("actualiza la plantilla a Rev. 08 y elimina la fecha de emisión", async () => {
+  const book = new ExcelJS.Workbook();
+  await book.xlsx.readFile("public/examples/Solicitud-VE-template.xlsx");
+  const sheet = book.worksheets[0];
+  prepareRevisionHeader(sheet);
+  assert.equal(sheet.getCell("K2").value, "Rev. 08");
+  assert.equal(sheet.getCell("L2").value, "Aprobó: Leopoldo Kuschnaroff");
+  assert.ok(sheet.model.merges.includes("L2:P4"));
+  assert.equal(sheet.model.merges.includes("L3:P4"), false);
+  assert.equal(String(sheet.getCell("L3").value ?? "").includes("Emision"), false);
+});
 
 test("el reporte de muestras no repite el mismo producto, lote y corte", () => {
   const request = {
